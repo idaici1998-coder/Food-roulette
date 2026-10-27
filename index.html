@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>東京外食決定ルーレット</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+        body { font-family: 'Noto Sans JP', sans-serif; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 min-h-screen text-slate-800 pb-12">
+
+    <div class="max-w-3xl mx-auto px-4 py-8">
+        <!-- ヘッダー -->
+        <header class="text-center mb-8">
+            <span class="bg-orange-100 text-orange-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Tokyo Dining Roulette</span>
+            <h1 class="text-3xl font-black mt-2 text-slate-900">今日の外食 どこ行く？ルーレット</h1>
+            <p class="text-sm text-slate-600 mt-1">東京の充実した食都事情に合わせてランダム決定！</p>
+        </header>
+
+        <!-- メインカード -->
+        <main class="bg-white/80 backdrop-blur-md shadow-xl rounded-2xl p-6 md:p-8 border border-orange-100 mb-8">
+            
+            <!-- タブ切り替え（除外モード vs 選択モード） -->
+            <div class="flex rounded-xl bg-slate-100 p-1 mb-6">
+                <button id="tab-exclude" onclick="switchMode('exclude')" class="flex-1 py-2.5 text-sm font-bold rounded-lg transition-all bg-white text-orange-600 shadow-sm">
+                    🚫 除外モード（苦手・気分じゃないものを外す）
+                </button>
+                <button id="tab-include" onclick="switchMode('include')" class="flex-1 py-2.5 text-sm font-bold rounded-lg transition-all text-slate-600">
+                    🎯 選択モード（このジャンルから選ぶ）
+                </button>
+            </div>
+
+            <!-- クイックプリセットボタン -->
+            <div class="mb-6">
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">クイックプリセット</label>
+                <div class="flex flex-wrap gap-2" id="presets-container">
+                    <!-- 動的生成 -->
+                </div>
+            </div>
+
+            <hr class="border-slate-200 mb-6">
+
+            <!-- フィルターエリア -->
+            <div id="filter-area" class="mb-8">
+                <!-- 動的生成されるチェックボックス群 -->
+            </div>
+
+            <!-- 候補数表示 -->
+            <div class="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 mb-8">
+                <span class="text-sm font-bold text-orange-900">現在の候補ジャンル数</span>
+                <span id="candidate-count" class="text-xl font-black text-orange-600">0</span>
+            </div>
+
+            <!-- ルーレット・演出エリア -->
+            <div class="text-center bg-slate-900 text-white rounded-2xl p-8 shadow-inner mb-6 relative overflow-hidden">
+                <div class="absolute inset-0 bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px] opacity-30"></div>
+                
+                <div id="roulette-display" class="relative z-10 text-3xl md:text-5xl font-black tracking-wider min-h-[80px] flex items-center justify-center text-amber-400 drop-shadow-md">
+                    STARTボタンを押してね！
+                </div>
+                <p id="roulette-subtext" class="relative z-10 text-xs text-slate-400 mt-2">東京で人気のジャンルから抽選します</p>
+            </div>
+
+            <!-- アクションボタン -->
+            <div class="flex gap-4">
+                <button id="spin-btn" onclick="startRoulette()" class="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-lg py-4 rounded-xl shadow-lg hover:shadow-orange-500/30 transition-all active:scale-[0.98]">
+                    🎲 ルーレットを回す！
+                </button>
+                <button onclick="shareConfig()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-5 rounded-xl transition-all flex items-center justify-center gap-2 text-sm">
+                    🔗 設定を共有
+                </button>
+            </div>
+        </main>
+
+        <!-- 結果詳細モーダル -->
+        <div id="result-card" class="hidden bg-white shadow-xl rounded-2xl p-6 md:p-8 border-2 border-orange-400 animate-fade-in">
+            <div class="flex items-center justify-between mb-4">
+                <span class="bg-orange-500 text-white text-xs font-black px-3 py-1 rounded-full">🎉 決定！</span>
+                <span id="res-region" class="text-xs font-bold text-slate-400"></span>
+            </div>
+            <h2 id="res-name" class="text-3xl font-black text-slate-900 mb-2"></h2>
+            <p id="res-desc" class="text-sm text-slate-600 mb-6"></p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <span class="block text-xs font-bold text-slate-400 mb-1">代表的なメニュー・料理</span>
+                    <p id="res-dishes" class="text-sm font-bold text-slate-800"></p>
+                </div>
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <span class="block text-xs font-bold text-slate-400 mb-1">東京の主な名店エリア</span>
+                    <p id="res-spots" class="text-sm font-bold text-slate-800"></p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+                <a id="map-search-link" href="#" target="_blank" class="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-4 rounded-xl text-center text-sm transition-all shadow-sm">
+                    🗺️ Googleマップで近くのお店を探す
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- スクリプト -->
+    <script>
+        // 東京の店舗数・アクセス性を考慮した重み（weight）付きデータ
+        const cuisines = [
+            // 日本・東アジア
+            { id: 'izakaya', name: '居酒屋・和食', region: '東アジア', weight: 10, dishes: '刺身、焼き鳥、肉豆腐、だし巻き玉子', spots: '新橋、新宿、赤羽、吉祥寺' },
+            { id: 'sushi', name: '寿司・海鮮', region: '東アジア', weight: 8, dishes: '握り寿司、海鮮丼、なめろう', spots: '豊洲、築地、銀座、各所の街寿司' },
+            { id: 'yakiniku', name: '焼肉・ホルモン', region: '東アジア', weight: 9, dishes: 'カルビ、タン塩、ホルモン焼き', spots: '芝浦、鶴見、新宿、浅草' },
+            { id: 'ramen', name: 'ラーメン・つけ麺', region: '東アジア', weight: 10, dishes: '醤油、豚骨、つけ麺、家系、二郎系', spots: '高田馬場、池袋、ラーメンストリート' },
+            { id: 'korean', name: '韓国料理', region: '東アジア', weight: 9, dishes: 'サムギョプサル、チヂミ、スンドゥブ、キンパ', spots: '新大久保、赤坂' },
+            { id: 'chinese', name: '中華料理・町中華', region: '東アジア', weight: 9, dishes: '餃子、チャーハン、麻婆豆腐、小籠包', spots: '神保町、池袋、横浜中華街(近郊)' },
+
+            // 東南アジア・南アジア
+            { id: 'thai', name: 'タイ料理', region: '東南アジア', weight: 7, dishes: 'ガパオライス、トムヤムクン、パッタイ', spots: '錦糸町、新大久保、渋谷' },
+            { id: 'vietnamese', name: 'ベトナム料理', region: '東南アジア', weight: 6, dishes: 'フォー、バインミー、生春巻き', spots: '高田馬場、恵比寿、蒲田' },
+            { id: 'indian_nepal', name: 'インド・ネパール料理', region: '南アジア', weight: 8, dishes: 'バターチキンカレー、ナン、ダルバート、ビリヤニ', spots: '西葛西、大久保、八重洲' },
+
+            // 中東・中央アジア
+            { id: 'turkish', name: 'トルコ料理', region: '中東', weight: 5, dishes: 'ドネルケバブ、サバサンド、サバケバブ、ピデ', spots: '原宿、新宿、秋葉原、麻布十番' },
+            { id: 'middle_east', name: 'アラブ・中東料理', region: '中東', weight: 4, dishes: 'フムス、ファラフェル、シャワルマ、クスクス', spots: '代々木上原、広尾、六本木' },
+
+            // ヨーロッパ（細分化）
+            { id: 'italian', name: 'イタリア料理', region: 'ヨーロッパ', weight: 9, dishes: 'ナポリピッツァ、パスタ、カルパッチョ', spots: '恵比寿、中目黒、麻布十番' },
+            { id: 'french', name: 'フランス料理・ビストロ', region: 'ヨーロッパ', weight: 7, dishes: 'コンフィ、ステックフリット、キッシュ', spots: '神楽坂、恵比寿、銀座' },
+            { id: 'spanish', name: 'スペイン料理・バル', region: 'ヨーロッパ', weight: 6, dishes: 'パエリア、アヒージョ、生ハム、ピンチョス', spots: '銀座、恵比寿、渋谷' },
+            { id: 'british', name: 'イギリス料理・PUB', region: 'ヨーロッパ', weight: 4, dishes: 'フィッシュ＆チップス、ローストビーフ、パイ', spots: '六本木、渋谷、HUB各店' },
+            { id: 'greek', name: 'ギリシャ料理', region: 'ヨーロッパ', weight: 3, dishes: 'ムサカ、スブラキ、ギリシャサラダ、グリークヨーグルト', spots: '銀座、表参道、横浜' },
+            { id: 'german', name: 'ドイツ料理・ビアホール', region: 'ヨーロッパ', weight: 4, dishes: 'アイスバイン、ソーセージ、プレッツェル', spots: '有楽町、赤坂、六本木' },
+
+            // 南北アメリカ・その他
+            { id: 'american', name: 'ハンバーガー・アメリカン', region: '南北アメリカ', weight: 7, dishes: 'クラフトバーガー、BBQポーク、ステーキ', spots: '原宿、恵比寿、三軒茶屋' },
+            { id: 'mexican', name: 'メキシコ料理', region: '南北アメリカ', weight: 5, dishes: 'タコス、ブリトー、ナチョス、ファヒータ', spots: '原宿、六本木、渋谷' }
+        ];
+
+        let currentMode = 'exclude'; // 'exclude' or 'include'
+        let userSelections = {}; // id -> boolean
+
+        function init() {
+            cuisines.forEach(c => {
+                userSelections[c.id] = true;
+            });
+
+            loadFromUrlParams();
+            renderPresets();
+            renderFilters();
+            updateCount();
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+            const btnExclude = document.getElementById('tab-exclude');
+            const btnInclude = document.getElementById('tab-include');
+
+            if (mode === 'exclude') {
+                btnExclude.className = "flex-1 py-2.5 text-sm font-bold rounded-lg transition-all bg-white text-orange-600 shadow-sm";
+                btnInclude.className = "flex-1 py-2.5 text-sm font-bold rounded-lg transition-all text-slate-600";
+            } else {
+                btnInclude.className = "flex-1 py-2.5 text-sm font-bold rounded-lg transition-all bg-white text-orange-600 shadow-sm";
+                btnExclude.className = "flex-1 py-2.5 text-sm font-bold rounded-lg transition-all text-slate-600";
+            }
+            renderFilters();
+            updateCount();
+        }
+
+        function renderPresets() {
+            const container = document.getElementById('presets-container');
+            const presets = [
+                { label: 'すべて選択', action: () => setAll(true) },
+                { label: 'アジア・中東', action: () => setByRegion(['東アジア', '東南アジア', '南アジア', '中東']) },
+                { label: 'ヨーロッパ中心', action: () => setByRegion(['ヨーロッパ']) },
+                { label: 'エキゾチック（中東・ギリシャ等）', action: () => setByIds(['turkish', 'middle_east', 'greek', 'mexican', 'indian_nepal']) },
+                { label: 'すべてリセット', action: () => setAll(false) }
+            ];
+
+            container.innerHTML = presets.map((p, idx) => `
+                <button onclick="presets[${idx}].action()" class="text-xs bg-slate-100 hover:bg-orange-100 hover:text-orange-700 font-bold px-3 py-1.5 rounded-lg transition-all text-slate-700">
+                    ${p.label}
+                </button>
+            `).join('');
+            
+            window.presets = presets;
+        }
+
+        function setAll(val) {
+            cuisines.forEach(c => userSelections[c.id] = val);
+            renderFilters();
+            updateCount();
+        }
+
+        function setByRegion(regions) {
+            cuisines.forEach(c => {
+                userSelections[c.id] = regions.includes(c.region);
+            });
+            renderFilters();
+            updateCount();
+        }
+
+        function setByIds(ids) {
+            cuisines.forEach(c => {
+                userSelections[c.id] = ids.includes(c.id);
+            });
+            renderFilters();
+            updateCount();
+        }
+
+        function renderFilters() {
+            const container = document.getElementById('filter-area');
+            
+            let html = `<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">`;
+            cuisines.forEach(c => {
+                const isChecked = userSelections[c.id];
+                html += `
+                    <label class="flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${isChecked ? 'bg-orange-50/60 border-orange-300 text-slate-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-400 opacity-60'}">
+                        <input type="checkbox" value="${c.id}" ${isChecked ? 'checked' : ''} onchange="toggleSelection('${c.id}', this.checked)" class="w-4 h-4 text-orange-600 rounded focus:ring-orange-500">
+                        <span class="text-xs md:text-sm">${c.name}</span>
+                    </label>
+                `;
+            });
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        function toggleSelection(id, checked) {
+            userSelections[id] = checked;
+            renderFilters();
+            updateCount();
+        }
+
+        function getActiveCandidates() {
+            return cuisines.filter(c => userSelections[c.id]);
+        }
+
+        function updateCount() {
+            const active = getActiveCandidates();
+            document.getElementById('candidate-count').innerText = `${active.length} / ${cuisines.length} ジャンル`;
+        }
+
+        // ルーレット実行
+        let isSpinning = false;
+        function startRoulette() {
+            if (isSpinning) return;
+            const candidates = getActiveCandidates();
+
+            if (candidates.length === 0) {
+                alert('候補が1つも選択されていません！');
+                return;
+            }
+
+            isSpinning = true;
+            const spinBtn = document.getElementById('spin-btn');
+            const display = document.getElementById('roulette-display');
+            const subtext = document.getElementById('roulette-subtext');
+            const resultCard = document.getElementById('result-card');
+            
+            spinBtn.disabled = true;
+            spinBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            resultCard.classList.add('hidden');
+
+            let counter = 0;
+            const totalSteps = 25;
+            let speed = 50;
+
+            function runStep() {
+                let weightedPool = [];
+                candidates.forEach(c => {
+                    for(let i=0; i<c.weight; i++) weightedPool.push(c);
+                });
+                const randomChoice = weightedPool[Math.floor(Math.random() * weightedPool.length)];
+
+                display.innerText = randomChoice.name;
+                subtext.innerText = `地域分類：${randomChoice.region}`;
+                counter++;
+
+                if (counter < totalSteps) {
+                    speed += 10;
+                    setTimeout(runStep, speed);
+                } else {
+                    finishRoulette(randomChoice);
+                }
+            }
+
+            runStep();
+        }
+
+        function finishRoulette(winner) {
+            isSpinning = false;
+            const spinBtn = document.getElementById('spin-btn');
+            spinBtn.disabled = false;
+            spinBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+
+            document.getElementById('roulette-subtext').innerText = '✨ 決定しました！';
+
+            document.getElementById('res-region').innerText = `分類: ${winner.region}`;
+            document.getElementById('res-name').innerText = winner.name;
+            document.getElementById('res-desc').innerText = `東京で美味しいお店が見つかりやすい「${winner.name}」に決定しました！`;
+            document.getElementById('res-dishes').innerText = winner.dishes;
+            document.getElementById('res-spots').innerText = winner.spots;
+            
+            const mapQuery = encodeURIComponent(`東京 ${winner.name} おすすめ`);
+            document.getElementById('map-search-link').href = `https://www.google.com/maps/search/${mapQuery}`;
+
+            const resultCard = document.getElementById('result-card');
+            resultCard.classList.remove('hidden');
+            resultCard.scrollIntoView({ behavior: 'smooth' });
+
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+        }
+
+        function shareConfig() {
+            const activeIds = Object.keys(userSelections).filter(k => userSelections[k]);
+            const param = activeIds.join(',');
+            const shareUrl = `${window.location.origin}${window.location.pathname}?c=${encodeURIComponent(param)}`;
+
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                alert('現在の選択設定を含んだ共有リンクをコピーしました！');
+            }).catch(err => {
+                prompt('以下のURLをコピーして共有してください：', shareUrl);
+            });
+        }
+
+        function loadFromUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            const cParam = params.get('c');
+            if (cParam) {
+                const activeIds = cParam.split(',');
+                cuisines.forEach(c => {
+                    userSelections[c.id] = activeIds.includes(c.id);
+                });
+            }
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
